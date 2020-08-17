@@ -22,7 +22,7 @@ def get_sorted_leaderboard(conn):
     """
     # We're querying for 20 people instead of 10 because sometimes the top 10 will include people who
     # are no longer in the server. This way, we can sort the "None" types out and get a real top 10.
-    get_sorted_leaderboard_query = "Select id, sum(points) AS pointCount FROM UserData GROUP BY id ORDER BY pointCount DESC LIMIT 20"
+    get_sorted_leaderboard_query = "Select user, sum(points) AS pointCount FROM UserData GROUP BY user ORDER BY pointCount DESC LIMIT 20"
     if conn is not None:
         try:
             cur = conn.cursor()
@@ -35,7 +35,7 @@ def get_sorted_leaderboard(conn):
         print("Error! Database connection was not established when querying the order of the leaderboard.")
 
 def get_user_points(user,conn):
-    get_points_query = "SELECT sum(points) FROM UserData WHERE id='{}'".format(user)
+    get_points_query = "SELECT sum(points) FROM UserData WHERE user='{}'".format(user)
     if conn is not None:
         try:
             cur = conn.cursor()
@@ -54,7 +54,7 @@ def get_user_gallery(user, conn):
     :param conn: connection to the database
     :return: returns a list of tuples
     """
-    get_gallery_query = "SELECT link FROM UserData WHERE id='{}' AND link IS NOT NULL".format(user)
+    get_gallery_query = "SELECT link FROM UserData WHERE user='{}' AND link IS NOT NULL".format(user)
     if conn is not None:
         try:
             cur = conn.cursor()
@@ -66,11 +66,16 @@ def get_user_gallery(user, conn):
     else:
         print("Error! Database connection was not established when querying a user's gallery.")
 
-def get_member(member_id):
-    return client.get_guild(miniac_server_id).get_member(member_id)
+def get_member(user):
+    """
+    Returns a discord user object based on the user id input
+    :param user: the ID of the dicord user
+    :return: returns the member object of the specified user
+    """
+    return client.get_guild(miniac_server_id).get_member(user)
 
 def add_user_submission(user,link,points,conn):
-    add_submission_query = "INSERT INTO UserData (id,link,points,date) VALUES ({},{},{},{})".format(user,link,points,sqlite3.Date('now'))
+    add_submission_query = "INSERT INTO UserData (user,link,points,date) VALUES ({},{},{},{})".format(user,link,points,sqlite3.Date('now'))
     if conn is not None:
         try:
             cur = conn.cursor()
@@ -82,7 +87,7 @@ def add_user_submission(user,link,points,conn):
     else:
         print("Error! Database connection was not established when adding a submission for user.")
 
-async def set_name(user_points, member, discord_user_id):
+async def set_name(user_points, member):
     #If possible, use the members nick name on the server before their account name
     user_name = ''
     try:
@@ -176,7 +181,7 @@ async def increment_points_wrapper(message):
         add_user_submission(discord_user_id,(None,), points, conn)
         user_points = get_user_points(discord_user_id,conn)
         conn.close
-        await set_name(user_points, get_member(discord_user_id), discord_user_id)
+        await set_name(user_points, get_member(discord_user_id))
         return_message = ":sob: Woops, {}. You now have {} points :sob:".format(get_member(discord_user_id).display_name, user_points)
         return return_message
 
@@ -195,7 +200,7 @@ async def increment_points_wrapper(message):
         user_points = before_points + points
         conn.close
 
-        await set_name(user_points, get_member(discord_user_id), discord_user_id)
+        await set_name(user_points, get_member(discord_user_id))
         if user_points >= 50 and before_points < 50:
             return_message = ":moneybag: HOOTY HOO! You've earned your first emoji. FLEX ON THE HATERS WHO DON'T PAINT! :moneybag:"
 
