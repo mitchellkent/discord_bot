@@ -40,8 +40,8 @@ def migrate_tables(conn):
         cur.execute(query)
         points = cur.fetchone()
 
-        #Set first submition of user to be their leaderboard score, this means only one of their submitions will have points after migration
-        query = "UPDATE UserData SET points = {} WHERE user='{}' AND link = '{}'".format(int(points[0]),table[0],tableInfo[0][1])
+        #Insert row for users leaderboard score, this means only one of their submitions will have points after migration the rest will be zero
+        query = "INSERT INTO UserData (user,link,points,date) VALUES({},{},{},datetime('now'))".format(table[0],None,int(points[0]))
         print(query)
         cur = conn.cursor()
         cur.execute(query)
