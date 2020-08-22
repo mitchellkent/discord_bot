@@ -35,17 +35,12 @@ def get_sorted_leaderboard(conn):
         print("Error! Database connection was not established when querying the order of the leaderboard.")
 
 def get_user_points(user,conn):
-    get_points_query = "SELECT sum(points) FROM UserData WHERE user={}".format(user)
+    get_points_query = "SELECT sum(points) FROM UserData WHERE user='{}'".format(user)
     if conn is not None:
         try:
             cur = conn.cursor()
             cur.execute(get_points_query)
-            
-            result = cur.fetchone()[0]
-            if result is None:
-                return 0
-            else:
-                return result
+            return cur.fetchone()[0]
         except Error as e:
             print('Failed to retrieve {}\'s points. Error is below.'.format(user))
             print(e)
@@ -59,7 +54,7 @@ def get_user_gallery(user, conn):
     :param conn: connection to the database
     :return: returns a list of tuples
     """
-    get_gallery_query = "SELECT link FROM UserData WHERE user='{}' AND link NOT IN ('None')".format(user)
+    get_gallery_query = "SELECT link FROM UserData WHERE user='{}' AND link IS NOT NULL".format(user)
     if conn is not None:
         try:
             cur = conn.cursor()
@@ -80,12 +75,11 @@ def get_member(user):
     return client.get_guild(miniac_server_id).get_member(user)
 
 def add_user_submission(user,link,points,conn):
-    add_submission_query = "INSERT INTO UserData (user,link,points,date) VALUES ({},'{}',{},datetime('now'))".format(user,link,points)
+    add_submission_query = "INSERT INTO UserData (user,link,points,date) VALUES ({},{},{},{})".format(user,link,points,sqlite3.Date('now'))
     if conn is not None:
         try:
             cur = conn.cursor()
             cur.execute(add_submission_query)
-            conn.commit()
             return cur.fetchall()
         except Error as e:
             print('Failed to add a submission for user {}. Error is below.'.format(user))
@@ -184,7 +178,7 @@ async def increment_points_wrapper(message):
 
         conn = sqlite3.connect(database)
         # When we decrement we add a submission with an empty link this entry will be ignored when the person's gallery is grabbed
-        add_user_submission(discord_user_id,None, points, conn)
+        add_user_submission(discord_user_id,(None,), points, conn)
         user_points = get_user_points(discord_user_id,conn)
         conn.close
         await set_name(user_points, get_member(discord_user_id))
@@ -203,7 +197,7 @@ async def increment_points_wrapper(message):
         conn = sqlite3.connect(database)
         before_points = get_user_points(discord_user_id,conn)
         add_user_submission(discord_user_id,image_link, points, conn)
-        user_points = before_points + int(points)
+        user_points = before_points + points
         conn.close
 
         await set_name(user_points, get_member(discord_user_id))
@@ -261,7 +255,7 @@ def get_points(message):
             "I believe in you. In a week you'll be on the board. For now you have zero points, though."
             ]
     if len(command_params) == 1:
-        points = get_user_points(message.author.id,conn)
+        points = get_user_points(conn, message.author.id)
         if int(points):
             return_message = "```{}: {}```".format(message.author.display_name, points)
         else:
@@ -275,7 +269,7 @@ def get_points(message):
             return return_message
 
         discord_user_id = int(re.sub("\D", "", command_params[1]))
-        points = get_user_points(discord_user_id,conn)
+        points = get_user_points(conn, discord_user_id)
         return_message = "```{}: {}```".format(client.get_guild(miniac_server_id).get_member(discord_user_id).display_name, points)
         conn.close()
         return return_message
@@ -316,8 +310,6 @@ def get_gallery(message):
         # Append the final message that didn't make it to 2k characters
         discord_private_message_list.append(discord_private_message)
     except TypeError:
-        discord_private_message_list.append("User has no gallery. Harass them to paint some minis!")
-    if discord_private_message_list[0] == '':
         discord_private_message_list[0] = "User has no gallery. Harass them to paint some minis!"
 
     return discord_private_message_list
