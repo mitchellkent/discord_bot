@@ -12,7 +12,7 @@ def migrate_tables(conn):
 
     #Select all user table names to cycle through
     cur = conn.cursor()
-    cur.execute("SELECT name from sqlite_master where type= 'table' AND name NOT IN ('leaderboard','sqlite_sequence','UserData')")
+    cur.execute("SELECT name from sqlite_master where type= 'table' AND name NOT IN ('leaderboard','sqlite_sequence','UserData','')")
     tables = cur.fetchall()
 
     #cycles through each table
@@ -41,7 +41,7 @@ def migrate_tables(conn):
         points = cur.fetchone()
 
         #Insert row for users leaderboard score, this means only one of their submitions will have points after migration the rest will be zero
-        query = "INSERT INTO UserData (user,link,points,date) VALUES({},{},{},datetime('now'))".format(table[0],None,int(points[0]))
+        query = "INSERT INTO UserData (user,link,points,date) VALUES({},{},{},datetime('now'))".format(table[0],'NULL',int(points[0]))
         print(query)
         cur = conn.cursor()
         cur.execute(query)

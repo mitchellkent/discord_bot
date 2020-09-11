@@ -78,12 +78,14 @@ def get_member(user):
     return client.get_guild(miniac_server_id).get_member(user)
 
 def add_user_submission(user,link,points,conn):
-    add_submission_query = "INSERT INTO UserData (user,link,points,date) VALUES ({},{},{},{})".format(user,link,points,sqlite3.Date('now'))
+    add_submission_query = "INSERT INTO UserData (user,link,points,date) VALUES ({},'{}',{},datetime('now'))".format(user,link,points)
+    print(add_submission_query)
     if conn is not None:
         try:
             cur = conn.cursor()
             cur.execute(add_submission_query)
-            return cur.fetchall()
+            conn.commit()
+            return points
         except Error as e:
             print('Failed to add a submission for user {}. Error is below.'.format(user))
             print(e)
@@ -191,10 +193,9 @@ async def increment_points_wrapper(message):
     elif len(command_params) == 4:
         # using the !add command to actually add points
         # command = command_params[0]
-        image_link = command_params[3]
         # remove non digit characters like !, @, <, or >
         discord_user_id = int(re.sub("\D", "", command_params[1]))
-        points = command_params[2]
+        points = int(command_params[2])
         image_link = command_params[3]
 
         conn = sqlite3.connect(database)
@@ -203,7 +204,7 @@ async def increment_points_wrapper(message):
         user_points = before_points + points
         conn.close
 
-        await set_name(user_points, get_member(discord_user_id), discord_user_id)
+        await set_name(user_points, get_member(discord_user_id))
         if user_points >= 50 and before_points < 50:
             return_message = ":moneybag: HOOTY HOO! You've earned your first emoji. FLEX ON THE HATERS WHO DON'T PAINT! :moneybag:"
 
@@ -258,7 +259,7 @@ def get_points(message):
             "I believe in you. In a week you'll be on the board. For now you have zero points, though."
             ]
     if len(command_params) == 1:
-        points = get_user_points(conn, message.author.id)
+        points = get_user_points(message.author.id, conn)
         if int(points):
             return_message = "```{}: {}```".format(message.author.display_name, points)
         else:
@@ -272,7 +273,7 @@ def get_points(message):
             return return_message
 
         discord_user_id = int(re.sub("\D", "", command_params[1]))
-        points = retrieve_user_points(conn, discord_user_id)
+        points = get_user_points(message.author.id, conn)
         return_message = "```{}: {}```".format(client.get_guild(miniac_server_id).get_member(discord_user_id).display_name, points)
         conn.close()
         return return_message
