@@ -7,12 +7,15 @@ import asyncio
 import random
 from sqlite3 import Error
 
-TOKEN = ''
+f = open("./discord_auth.txt")
+lines=f.readlines()
+TOKEN = lines[0] 
+miniac_server_id = int(lines[1])
+miniac_general_channel_id = int(lines[2])
+miniac_welcome_channel_id = int(lines[3])
+f.close()
 client = discord.Client()
 database = "./points.db"
-miniac_server_id = 0
-miniac_general_channel_id = 0
-miniac_welcome_channel_id = 0
 
 def get_sorted_leaderboard(conn):
     """
@@ -182,7 +185,7 @@ async def increment_points_wrapper(message):
         user_points = get_user_points(discord_user_id,conn)
         conn.close
         await set_name(user_points, get_member(discord_user_id))
-        return_message = ":sob: Woops, {}. You now have {} points :sob:".format(get_member(discord_user_id).display_name, user_points)
+        return_message = ":sob: Woops, {}. You now have {} points :sob:".format(client.get_guild(miniac_server_id).get_member(discord_user_id).display_name,user_points)
         return return_message
 
     elif len(command_params) == 4:
@@ -200,7 +203,7 @@ async def increment_points_wrapper(message):
         user_points = before_points + points
         conn.close
 
-        await set_name(user_points, get_member(discord_user_id))
+        await set_name(user_points, get_member(discord_user_id), discord_user_id)
         if user_points >= 50 and before_points < 50:
             return_message = ":moneybag: HOOTY HOO! You've earned your first emoji. FLEX ON THE HATERS WHO DON'T PAINT! :moneybag:"
 
@@ -269,7 +272,7 @@ def get_points(message):
             return return_message
 
         discord_user_id = int(re.sub("\D", "", command_params[1]))
-        points = get_user_points(conn, discord_user_id)
+        points = retrieve_user_points(conn, discord_user_id)
         return_message = "```{}: {}```".format(client.get_guild(miniac_server_id).get_member(discord_user_id).display_name, points)
         conn.close()
         return return_message
@@ -282,10 +285,8 @@ def get_gallery(message):
     # split out the various params
     command_params = message.content.split()
     if len(command_params) != 2:
-        return_message = 'You\'re missing a parameter. Please see the !brian documentation'
-        return return_message
-
-    if '@' not in command_params[1]:
+        command_params = [ command_params[0] , str(message.author.id)]
+    elif '@' not in command_params[1]:
         return_message = 'You need to tag a user with this command. Their name should appear blue in discord.'
         return return_message
 
@@ -310,7 +311,7 @@ def get_gallery(message):
         # Append the final message that didn't make it to 2k characters
         discord_private_message_list.append(discord_private_message)
     except TypeError:
-        discord_private_message_list[0] = "User has no gallery. Harass them to paint some minis!"
+        discord_private_message_list.append("User has no gallery. Harass them to paint some minis!")
 
     return discord_private_message_list
 
@@ -336,29 +337,8 @@ def brian():
 @client.event
 async def on_member_join(member):
     print("Recognized that " + member.name + " joined")
-    await client.get_channel(miniac_general_channel_id).send('Welcome to the Miniac Discord, {} Make sure to check out the <#537337389400719360> channel for all the information and rules!'.format(member.name))
+    await client.get_channel(miniac_general_channel_id).send('Welcome to the Miniac Discord, {} Make sure to check out the <#537337389400719360> channel for all the information and rules!'.format(member.mention))
     print("Sent message about " + member.name + " to #general")
-
-async def boot_non_roles():
-        await client.wait_until_ready()
-        miniac_server = ''
-        keeper_roles = {'Wight King','Patreon','Rythm','Executioner','Zombie','Moose Fanclub','Dark Wizard','Acolyte','Zombie','Sepulchral Guard'}
-        for server in client.guilds:
-            if server.name == 'Miniac':
-                miniac_server = server
-
-        boot = list()
-        for member in miniac_server.members:
-            roles = set()
-            for miniac_role in member.roles:
-                roles.add(miniac_role.name)
-            if not (keeper_roles & roles):
-                boot.append(member)
-
-        while not client.is_closed:
-            for person in boot:
-                await person.kick()
-            await asyncio.sleep(2592000) # task runs once a month
 
 @client.event
 async def on_message(message):
@@ -376,7 +356,10 @@ async def on_message(message):
 
     if message.content.startswith('!gallery'):
         discord_private_message_list = get_gallery(message)
-        await message.author.send("{}'s Gallery".format(message.content.split()[1]))
+        if len(message.content.split()) == 2:
+            await message.author.send("{}'s Gallery".format(message.content.split()[1]))
+        else:
+            await message.author.send("{}'s Gallery".format(message.author.mention))
         for discord_message in discord_private_message_list:
             await message.author.send("{}".format(discord_message))
 
