@@ -43,7 +43,10 @@ def get_user_points(user,conn):
         try:
             cur = conn.cursor()
             cur.execute(get_points_query)
-            return cur.fetchone()[0]
+            points = cur.fetchone()[0]
+            if points is None:
+                points = 0
+            return points
         except Error as e:
             print('Failed to retrieve {}\'s points. Error is below.'.format(user))
             print(e)
@@ -57,7 +60,7 @@ def get_user_gallery(user, conn):
     :param conn: connection to the database
     :return: returns a list of tuples
     """
-    get_gallery_query = "SELECT link FROM UserData WHERE user='{}' AND link IS NOT NULL".format(user)
+    get_gallery_query = "SELECT link FROM UserData WHERE user='{}' AND link NOT IN ('')".format(user)
     if conn is not None:
         try:
             cur = conn.cursor()
@@ -183,7 +186,7 @@ async def increment_points_wrapper(message):
 
         conn = sqlite3.connect(database)
         # When we decrement we add a submission with an empty link this entry will be ignored when the person's gallery is grabbed
-        add_user_submission(discord_user_id,(None,), points, conn)
+        add_user_submission(discord_user_id,'', points, conn)
         user_points = get_user_points(discord_user_id,conn)
         conn.close
         await set_name(user_points, get_member(discord_user_id))
@@ -205,13 +208,13 @@ async def increment_points_wrapper(message):
         conn.close
 
         await set_name(user_points, get_member(discord_user_id))
-        if user_points >= 50 and before_points < 50:
+        if user_points >= 50 and user_points < 120 and before_points < 50:
             return_message = ":moneybag: HOOTY HOO! You've earned your first emoji. FLEX ON THE HATERS WHO DON'T PAINT! :moneybag:"
 
-        elif user_points >= 120 and before_points < 120:
+        elif user_points >= 120 and user_points < 400 and before_points < 120:
             return_message = ":crossed_swords: KACAW! You've earned your second emoji. HAIL AND KILL! :crossed_swords:"
 
-        elif user_points >= 400 and before_points < 400:
+        elif user_points >= 400 and user_points < 1000 and before_points < 400:
             return_message = ":crown: SKKKRT! You've earned your third emoji. YOU DA KING :crown:"
 
         elif user_points >= 1000 and before_points < 1000:
@@ -273,7 +276,8 @@ def get_points(message):
             return return_message
 
         discord_user_id = int(re.sub("\D", "", command_params[1]))
-        points = get_user_points(message.author.id, conn)
+        print(discord_user_id)
+        points = get_user_points(discord_user_id, conn)
         return_message = "```{}: {}```".format(client.get_guild(miniac_server_id).get_member(discord_user_id).display_name, points)
         conn.close()
         return return_message
